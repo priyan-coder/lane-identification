@@ -1,11 +1,12 @@
 from cv2 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def cannyAlgo(img):
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    canny = cv2.canny(blur, 50, 150)
+    canny = cv2.Canny(blur, 50, 150)
     return canny
 
 
@@ -25,12 +26,12 @@ canny = cannyAlgo(lane_image)
 
 
 # show the image
-cv2.imshow("result", canny)
+plt.imshow(canny)
 
 # displays the image for a specified amt of milli seconds
 # setting it to 0 ==> makes the image stay displayed
 # # infinelty until we hit a key
-cv2.waitKey(0)
+plt.show()
 
 
 # conda install -c conda-forge opencv
