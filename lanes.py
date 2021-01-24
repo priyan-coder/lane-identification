@@ -16,12 +16,14 @@ def cannyAlgo(img):
 
 
 def regionOfInterest(img):
-    heightOfImage = image.shape[0]
+    heightOfImage = img.shape[0]
     polygons = np.array([
-        [(200, heightOfImage), (1100, heightOfImage), (550, 250)]])
-    mask = np.zeros_like(image)
+        [(200, heightOfImage), (1100, heightOfImage), (550, 250)]
+    ])
+    mask = np.zeros_like(img)
     cv2.fillPoly(mask, polygons, [255, 255, 255])
-    return mask
+    masked_image = cv2.bitwise_and(img, mask)
+    return masked_image
 
 
 # loads the image
@@ -34,10 +36,11 @@ image = cv2.imread("test_image.jpg")
 lane_image = np.copy(image)
 
 canny = cannyAlgo(lane_image)
+cropped_image = regionOfInterest(canny)
 
 
 # show the image
-cv2.imshow("result", regionOfInterest(canny))
+cv2.imshow("result", cropped_image)
 
 # displays the image for a specified amt of milli seconds
 # setting it to 0 ==> makes the image stay displayed
@@ -64,14 +67,14 @@ cv2.waitKey(0)
 # image is an array
 # each row is am array of pixel values
 
-# 1. convert image to grayscale
+# 1. Convert image to grayscale
 
-# 2. reduce noise using GaussianBlur
+# 2. Reduce noise using GaussianBlur
 # Each pixel value is set to the
 # weighted average of the surrouding pixels
 # using a 5x5 kernel with zero deviation
 
-# 3. Find derivative ==> Canny
+# 3. Find derivative image ==> Canny
 # low threshold pixels rejected
 # high threshold pixels accepted as edge pixel
 # those between low and high will be accepted only if
@@ -82,7 +85,7 @@ cv2.waitKey(0)
 # Gradients that are small and below the low threshold are black
 
 
-# 4. Set the region of interest
+# 4. Prepare a mask to set the region of interest
 # shape of an array is indicated by a tuple of integers
 # i.e. height, width
 # zeroes_like creates an array of zeroes with the same shape as the image
@@ -94,3 +97,11 @@ cv2.waitKey(0)
 # OpenCV read color images as Blue, Green, Red (BGR)
 # To set the color as white:
 # cv2.fillPoly(mask, polygons, [255, 255, 255])
+
+# 5. Apply a bitwise and between the mask and the canny (derivative) image
+# Each pixel on the image has an intensity
+# which is effectively a bunch of 1s and 0s in binary
+# E.g of a bitwise and ==> 0 1 1 0 0 1 & 1 1 0 0 1 0 = 0 1 0 0 0 0
+# The mask we created is completely filled with 1s
+# With the bitwise & pixel by pixel ==> we chop off other edges
+# and retain just the path we are interested in
