@@ -33,7 +33,7 @@ def make_coordinates(img, line_params):
     # we hardcode y1 = height of image
     # because we want our line to start
     # at the bottom of the image
-    y1 = image.shape[0]
+    y1 = img.shape[0]
 
     # we hardcode y2 to be 3/5  of the height of the image
     y2 = int(y1 * (3/5))
@@ -71,13 +71,15 @@ def averageSlopeIntercept(img, linesDetected):
     # to indicate that we got to work vertically down the rows
     # [(slope1, intercept1), (slope2, intercept2)]
     # to get the average slope and intercept values
-    left_fit_average = np.average(left_fit, axis=0)
-    right_fit_average = np.average(right_fit, axis=0)
-    print(right_fit_average)
-    left_line = make_coordinates(img, left_fit_average)
-    right_line = make_coordinates(img, right_fit_average)
 
-    return np.array([left_line, right_line])
+    if len(left_fit) and len(right_fit):
+        left_fit_average = np.average(left_fit, axis=0)
+        right_fit_average = np.average(right_fit, axis=0)
+
+        left_line = make_coordinates(img, left_fit_average)
+        right_line = make_coordinates(img, right_fit_average)
+
+        return np.array([left_line, right_line])
 
 
 def displayLines(img, linesDetectedInGradientImage):
@@ -97,58 +99,35 @@ def displayLines(img, linesDetectedInGradientImage):
     return blackImgThatFollowsShapeOfimg
 
 
-# loads the image
-# returns a multi - dimensional np array with the
-# relative intensities of each pixel of the image
-# specify filename
-image = cv2.imread("test_image.jpg")
+# VIDEO PROCESSING
+# video capture object
+cap = cv2.VideoCapture("test2.mp4")
 
-# copy the array into a new variable
-lane_image = np.copy(image)
+# returns true if videoCapture is initialized
+while(cap.isOpened()):
+    # decode every video frame
+    # first value is a boolean which doesnt interest us
+    # secodn value is the current frame where we detect lines
+    # reuse algo for image line detection and replace
+    # lane_image with current frame
+    _, current_frame = cap.read()
+    canny_image = cannyAlgo(current_frame)
 
-# image wih pixel axis
-canny_image = cannyAlgo(lane_image)
+    cropped_image = regionOfInterest(canny_image)
+    lines = cv2.HoughLinesP(cropped_image, 2, np.pi/180, 100,
+                            np.array([]), minLineLength=40, maxLineGap=5)
+    averaged_Lines = averageSlopeIntercept(current_frame, lines)
+    line_image = displayLines(current_frame, averaged_Lines)
+    comboImage = cv2.addWeighted(current_frame, 0.8, line_image, 1, 1)
+    cv2.imshow("result", comboImage)
 
-# displays only region of interest
-cropped_image = regionOfInterest(canny_image)
+    # we want to wait 1 ms between frames
+    if cv2.waitKey(1) & 0XFF == ord("q"):
+        break
 
 
-# detected straight lines on cropeed image
-# 1st argument ==> image in which you want to detect line
-# 2nd (p) and 3rd (teta) agruments specify the resolution of the
-# Hough accumulator array or the grid which is a 2d array
-# that we use to collect votes for the best fit line
-# Each bin or grid has a distinct p, in pixels and teta value in radians
-# 4th argument ==> we specify threshold on which bin to choose
-# i.e. min num of votes to detect a line
-# we choose the bin with >=100 votes
-# 5th argument is a placeholder array for the output
-# Any detected line less than 40 pixels is rejected
-# Between segmented lines detected on image analysed, if the gap is <= 5,
-# we join them together
-lines = cv2.HoughLinesP(cropped_image, 2, np.pi/180, 100,
-                        np.array([]), minLineLength=40, maxLineGap=5)
-
-# array containing two lines
-averaged_Lines = averageSlopeIntercept(lane_image, lines)
-
-line_image = displayLines(lane_image, averaged_Lines)
-
-# addWeighted takes the sum of the color lane_image
-# and the line_image which has the lines
-# Multiply all pixel intensities in lane_image by 0.8
-# this makes it darker
-# multiply line_image by 1
-# add 1 to the sum of the pixel intensities of the two images
-comboImage = cv2.addWeighted(lane_image, 0.8, line_image, 1, 1)
-
-# show the image
-cv2.imshow("result", comboImage)
-
-# displays the image for a specified amt of milli seconds
-# setting it to 0 ==> makes the image stay displayed
-# # infinelty until we hit a key
-cv2.waitKey(0)
+cap.release()
+cv2.destroyAllWindows()
 
 
 # ---------------------THE LOGIC BEHIND THE CODE------------------
@@ -250,3 +229,81 @@ cv2.waitKey(0)
 # image.shape() ==> prints a tuple containing
 # the height, width and number of color channels in the image
 # x = (y - b) / m
+
+
+# IMAGE PROCESSING
+
+
+# loads the image
+# returns a multi - dimensional np array with the
+# relative intensities of each pixel of the image
+# specify filename
+# image = cv2.imread("test_image.jpg")
+
+# copy the array into a new variable
+# lane_image = np.copy(image)
+
+# image wih pixel axis
+# canny_image = cannyAlgo(lane_image)
+
+# displays only region of interest
+# cropped_image = regionOfInterest(canny_image)
+
+
+# detected straight lines on cropeed image
+# 1st argument ==> image in which you want to detect line
+# 2nd (p) and 3rd (teta) agruments specify the resolution of the
+# Hough accumulator array or the grid which is a 2d array
+# that we use to collect votes for the best fit line
+# Each bin or grid has a distinct p, in pixels and teta value in radians
+# 4th argument ==> we specify threshold on which bin to choose
+# i.e. min num of votes to detect a line
+# we choose the bin with >=100 votes
+# 5th argument is a placeholder array for the output
+# Any detected line less than 40 pixels is rejected
+# Between segmented lines detected on image analysed, if the gap is <= 5,
+# we join them together
+# lines = cv2.HoughLinesP(cropped_image, 2, np.pi/180, 100,
+#                         np.array([]), minLineLength=40, maxLineGap=5)
+
+# array containing two lines
+# averaged_Lines = averageSlopeIntercept(lane_image, lines)
+
+# line_image = displayLines(lane_image, averaged_Lines)
+
+# addWeighted takes the sum of the color lane_image
+# and the line_image which has the lines
+# Multiply all pixel intensities in lane_image by 0.8
+# this makes it darker
+# multiply line_image by 1
+# add 1 to the sum of the pixel intensities of the two images
+# comboImage = cv2.addWeighted(lane_image, 0.8, line_image, 1, 1)
+
+# show the image
+# cv2.imshow("result", comboImage)
+
+# displays the image for a specified amt of milli seconds
+# setting it to 0 ==> makes the image stay displayed
+# # infinelty until we hit a key
+# cv2.waitKey(0)
+
+
+# -->ord('q') returns the Unicode code point of q
+
+# -->cv2.waitkey(1) returns a 32-bit integer corresponding to the pressed key
+
+# -->& 0xFF is a bit mask which sets the left 24 bits to zero,
+# because ord() returns a value betwen 0 and 255,
+# since your keyboard only has a limited character set
+
+# -->Therefore, once the mask is applied, it is
+# then possible to check if it is the corresponding key.
+
+# Generally in the OpenCV tutorials and blogs,
+# it is a general convention to use "q" key for halting
+# any indefinite operation such as capturing frames from camera in your case.
+# In your case, the program indefinitely checks at each iteration
+# if "q" key is being pressed using
+# cv2.waitKey(1) & 0xFF == ord('q') statement.
+# If True then it simply brakes the infinite while loop.
+#  You can set it to any key of your choice.
