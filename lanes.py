@@ -25,16 +25,68 @@ def regionOfInterest(img):
     return masked_image
 
 
+# to generate coordinates for the lines we need to draw
+def make_coordinates(img, line_params):
+    # unpack the array of parameters
+    slope, intercept = line_params
+
+    # we hardcode y1 = height of image
+    # because we want our line to start
+    # at the bottom of the image
+    y1 = image.shape[0]
+
+    # we hardcode y2 to be 3/5  of the height of the image
+    y2 = int(y1 * (3/5))
+
+    x1 = int((y1 - intercept) / slope)
+    x2 = int((y2 - intercept) / slope)
+
+    return np.array([x1, y1, x2, y2])
+
+
+def averageSlopeIntercept(img, linesDetected):
+    # slope and intercept pairs of the line displayed on the left of image
+    left_fit = []
+    # slope and intercept pairs of the line displayed on the right of image
+    right_fit = []
+
+    for line in linesDetected:
+        # unpack coordinates
+        x1, y1, x2, y2 = line.reshape(4)
+        # capture the slope (m) and y-intercept(b) for each line
+        # polyfit a degree 1 eqn ( y = mx + b_)
+        # and returns a vector of coefficients
+        # that describe the eqn
+        parameters = np.polyfit((x1, x2), (y1, y2), 1)
+        slope = parameters[0]
+        intercept = parameters[1]
+        if slope < 0:
+            left_fit.append((slope, intercept))
+        else:
+            right_fit.append((slope, intercept))
+
+    # average out the values into a single slope and y-intercept
+    # i.e. a single line for left and right side respectively
+    # the axis is set to 0
+    # to indicate that we got to work vertically down the rows
+    # [(slope1, intercept1), (slope2, intercept2)]
+    # to get the average slope and intercept values
+    left_fit_average = np.average(left_fit, axis=0)
+    right_fit_average = np.average(right_fit, axis=0)
+    print(right_fit_average)
+    left_line = make_coordinates(img, left_fit_average)
+    right_line = make_coordinates(img, right_fit_average)
+
+    return np.array([left_line, right_line])
+
+
 def displayLines(img, linesDetectedInGradientImage):
     blackImgThatFollowsShapeOfimg = np.zeros_like(img)
 
     # if lines are detected
     if linesDetectedInGradientImage is not None:
-        # each line is a 2d array
-        for line in linesDetectedInGradientImage:
-            print(line)
-            # reshape into a 1-d array
-            x1, y1, x2, y2 = line.reshape(4)
+        # each line is a 1d array
+        for x1, y1, x2, y2 in linesDetectedInGradientImage:
             # draw this line that join the coordinates
             # on the black image which traces the parent image
             # with the BGR values (255,0,0)
@@ -55,17 +107,17 @@ image = cv2.imread("test_image.jpg")
 lane_image = np.copy(image)
 
 # image wih pixel axis
-canny = cannyAlgo(lane_image)
+canny_image = cannyAlgo(lane_image)
 
 # displays only region of interest
-cropped_image = regionOfInterest(canny)
+cropped_image = regionOfInterest(canny_image)
 
 
-# lines ==> detected straight lines on image
+# detected straight lines on cropeed image
 # 1st argument ==> image in which you want to detect line
 # 2nd (p) and 3rd (teta) agruments specify the resolution of the
 # Hough accumulator array or the grid which is a 2d array
-# which we use to collect votes for the best fit line
+# that we use to collect votes for the best fit line
 # Each bin or grid has a distinct p, in pixels and teta value in radians
 # 4th argument ==> we specify threshold on which bin to choose
 # i.e. min num of votes to detect a line
@@ -77,7 +129,10 @@ cropped_image = regionOfInterest(canny)
 lines = cv2.HoughLinesP(cropped_image, 2, np.pi/180, 100,
                         np.array([]), minLineLength=40, maxLineGap=5)
 
-line_image = displayLines(lane_image, lines)
+# array containing two lines
+averaged_Lines = averageSlopeIntercept(lane_image, lines)
+
+line_image = displayLines(lane_image, averaged_Lines)
 
 # addWeighted takes the sum of the color lane_image
 # and the line_image which has the lines
@@ -185,3 +240,13 @@ cv2.waitKey(0)
 # where x, g is the coordinates of a point
 # So in the hough space, we now plot the possible (p, teta)
 # for each point in the cartesian space
+# To draw a line you just need two points
+
+# 7. Optimising
+# Now we already have the straight lines displaying on the colored image
+# But some lines are segmnented and we want a continuous line on the
+# left and rigth of image
+# As x increases ==> y increases ==> positive slope ==> m > 0
+# image.shape() ==> prints a tuple containing
+# the height, width and number of color channels in the image
+# x = (y - b) / m
